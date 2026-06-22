@@ -79,9 +79,11 @@ const Api = {
     try {
       const res  = await fetch(`${this.url}?acao=carregarBase`, { redirect: 'follow' });
       const data = await res.json();
-      return data.ok ? data : null;
+      if (!data.ok) return null;
+      // Aba vazia → retorna objeto vazio mas não null (não é offline)
+      return data;
     } catch {
-      return null;
+      return null; // null = offline de verdade
     }
   },
 
@@ -108,8 +110,8 @@ const Api = {
         }),
       });
 
-      // Aguarda o Apps Script processar e confirma lendo de volta
-      await new Promise(r => setTimeout(r, 2500));
+      // Aguarda o Apps Script processar (mais tempo para planilhas grandes)
+      await new Promise(r => setTimeout(r, 5000));
       const check = await this.carregarBase();
       return !!(check && check.iso && check.iso === iso);
     } catch {

@@ -143,7 +143,17 @@ function confirmarImportacao() {
 // Importa aba BASE → Estado.dadosBase
 // -----------------------------------------------
 function _importarAbaBase(nomeAba, modo) {
-  const linhas = _lerComoArrays(nomeAba);
+  let linhas = _lerComoArrays(nomeAba);
+  if (linhas.length < 2) {
+    mostrarNotificacao('Planilha vazia ou sem dados.', 'aviso');
+    return false;
+  }
+
+  // Pula linha ##META do sincronismo (presente quando o xlsx veio do Google Sheets)
+  if (String(linhas[0][0] || '').trim() === '##META') {
+    linhas = linhas.slice(1);
+  }
+
   if (linhas.length < 2) {
     mostrarNotificacao('Planilha vazia ou sem dados.', 'aviso');
     return false;

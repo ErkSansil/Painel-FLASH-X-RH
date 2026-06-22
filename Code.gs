@@ -278,11 +278,25 @@ function _removerUsuario(login, senha, alvo) {
 }
 
 // -----------------------------------------------
-// BASE SYNC — salva toda a BASE como JSON na aba BASE_SYNC
-// Linha 1: timestamp | usuario | colunasBase (JSON) | dadosBase (JSON)
+// BASE SYNC — grava os dados como linhas reais na aba PAINEL BASE
+// Estrutura:
+//   Linha 1: ##META | timestamp | usuario | iso
+//   Linha 2: cabeçalhos das colunas
+//   Linhas 3+: linhas de dados
+// Sem limite de tamanho (não usa JSON em célula única)
 // -----------------------------------------------
 function _salvarBase(d) {
-  if (!d.dados) return { ok: false, erro: 'Sem dados' };
+  if (!d.dadosBase) return { ok: false, erro: 'Sem dados' };
+
+  let colunas, dados;
+  try {
+    colunas = JSON.parse(d.colunasBase || '[]');
+    dados   = JSON.parse(d.dadosBase   || '[]');
+  } catch(e) {
+    return { ok: false, erro: 'JSON inválido: ' + e.message };
+  }
+
+  if (!Array.isArray(colunas) || !colunas.length) return { ok: false, erro: 'Colunas inválidas' };
 
   const sheet = _aba(ABA_SYNC);
   sheet.clearContents();
@@ -290,40 +304,79 @@ function _salvarBase(d) {
   const agora = Utilities.formatDate(
     new Date(), Session.getScriptTimeZone(), 'dd/MM/yyyy HH:mm:ss'
   );
+  const iso = d.isoTimestamp || new Date().toISOString();
 
-  // Cabeçalho de metadados na linha 1
-  sheet.getRange(1, 1).setValue('TIMESTAMP');
-  sheet.getRange(1, 2).setValue('USUARIO');
-  sheet.getRange(1, 3).setValue('ISO');
-  sheet.getRange(1, 4).setValue('COLUNAS_JSON');
-  sheet.getRange(1, 5).setValue('DADOS_JSON');
+  // Linha 1: metadados
+  sheet.getRange(1, 1, 1, 4).setValues([['##META', agora, d.usuario || '', iso]]);
 
-  // Dados na linha 2
-  sheet.getRange(2, 1).setValue(agora);
-  sheet.getRange(2, 2).setValue(d.usuario || '');
-  sheet.getRange(2, 3).setValue(d.isoTimestamp || new Date().toISOString());
-  sheet.getRange(2, 4).setValue(d.colunasBase || '[]');
-  sheet.getRange(2, 5).setValue(d.dadosBase   || '[]');
+  // Linha 2: cabeçalhos
+  sheet.getRange(2, 1, 1, colunas.length).setValues([colunas]);
 
-  return { ok: true, timestamp: agora, iso: d.isoTimestamp };
+  // Linhas 3+: dados (uma linha por colaborador)
+  // Todos os valores são salvos como STRING para preservar CPF, CNPJ, etc.
+  if (dados.length > 0) {
+    const linhas = dados.map(row => colunas.map(col => {
+      const v = row[col];
+      if (v === null || v === undefined) return '';
+      return String(v); // força texto → evita perda de precisão no Sheets
+    }));
+    const range = sheet.getRange(3, 1, linhas.length, colunas.length);
+    range.setNumberFormat('@');   // formato texto antes de setar os valores
+    range.setValues(linhas);
+  }
+
+  return { ok: true, timestamp: agora, iso };
 }
 
 // -----------------------------------------------
-// BASE SYNC — carrega a BASE do Sheets
-// Retorna null em dados se a aba estiver vazia
+// BASE SYNC — lê as linhas e reconstrói o JSON para o frontend
 // -----------------------------------------------
 function _carregarBase() {
   const sheet = _aba(ABA_SYNC);
-  if (sheet.getLastRow() < 2) return { ok: true, dados: null };
+  if (sheet.getLastRow() < 2) {
+    return { ok: true, iso: '', dadosBase: '[]', colunasBase: '[]', timestamp: '', usuario: '' };
+  }
 
-  const row = sheet.getRange(2, 1, 1, 5).getValues()[0];
+  const meta = sheet.getRange(1, 1, 1, 4).getValues()[0];
+  if (String(meta[0]) !== '##META') {
+    return { ok: true, iso: '', dadosBase: '[]', colunasBase: '[]', timestamp: '', usuario: '' };
+  }
+
+  const timestamp = String(meta[1] || '');
+  const usuario   = String(meta[2] || '');
+  const iso       = String(meta[3] || '');
+
+  if (sheet.getLastRow() < 3) {
+    // Tem metadados mas sem dados ainda
+    const cabRow = sheet.getRange(2, 1, 1, sheet.getLastColumn()).getValues()[0];
+    const colunas = cabRow.map(c => String(c)).filter(c => c !== '');
+    return { ok: true, timestamp, usuario, iso, colunasBase: JSON.stringify(colunas), dadosBase: '[]' };
+  }
+
+  const cabRow  = sheet.getRange(2, 1, 1, sheet.getLastColumn()).getValues()[0];
+  const colunas = cabRow.map(c => String(c)).filter(c => c !== '');
+  const nCols   = colunas.length;
+
+  const totalLinhas = sheet.getLastRow() - 2; // descontar linha META e cabeçalho
+  const dadosRaw    = sheet.getRange(3, 1, totalLinhas, nCols).getValues();
+
+  const dados = dadosRaw.map((row, i) => {
+    const obj = { _id: i + 1 };
+    colunas.forEach((col, j) => {
+      const v = row[j];
+      // Força string em todos os valores para preservar CPF/CNPJ e evitar perda de precisão
+      obj[col] = (v === null || v === undefined || v === '') ? '' : String(v);
+    });
+    return obj;
+  });
+
   return {
     ok:          true,
-    timestamp:   String(row[0] || ''),
-    usuario:     String(row[1] || ''),
-    iso:         String(row[2] || ''),
-    colunasBase: String(row[3] || '[]'),
-    dadosBase:   String(row[4] || '[]'),
+    timestamp,
+    usuario,
+    iso,
+    colunasBase: JSON.stringify(colunas),
+    dadosBase:   JSON.stringify(dados),
   };
 }
 

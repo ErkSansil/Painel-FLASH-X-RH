@@ -354,8 +354,9 @@ function _atualizarPainelConexao() {
   }
 }
 
-// Mostra/oculta o campo de URL da API
+// Mostra/oculta o campo de URL da API (só Dev)
 function abrirPainelConexao() {
+  if (!Auth.isDev()) return;
   const painel = document.getElementById('painel-url-api');
   const inp    = document.getElementById('input-api-url');
   if (!painel) return;
