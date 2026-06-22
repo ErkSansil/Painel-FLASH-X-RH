@@ -1,0 +1,11 @@
+# Configurações locais (não subir credenciais)
+.env
+config.local.js
+
+# Sistema operacional
+.DS_Store
+Thumbs.db
+
+# Editores
+.vscode/
+*.swp

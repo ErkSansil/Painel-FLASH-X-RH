@@ -1,0 +1,688 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Flash RH – Gestão de Benefícios</title>
+
+  <!-- xlsx-js-style: SheetJS com suporte a estilos de célula (alinhamento, cores, etc.) -->
+  <script src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js"></script>
+
+  <!-- Google Identity Services: autenticação OAuth2 (opcional) -->
+  <script src="https://accounts.google.com/gsi/client"></script>
+
+  <link rel="stylesheet" href="css/style.css" />
+  <link rel="icon" type="image/png" href="IMAGENS/icone-amo.png" />
+</head>
+<body>
+
+  <!-- ========== TELA DE LOGIN ========== -->
+  <div id="tela-login" class="tela-login oculto">
+
+    <!-- Bolhas animadas de fundo -->
+    <div class="login-bg">
+      <span class="blob blob-1"></span>
+      <span class="blob blob-2"></span>
+      <span class="blob blob-3"></span>
+      <span class="blob blob-4"></span>
+    </div>
+
+    <div class="login-card">
+      <div class="login-logo">
+        <img src="IMAGENS/icone-amo.png" alt="Logo AMO" onerror="this.style.display='none'" />
+        <div class="login-logo-titulo">Flash RH</div>
+        <div class="login-logo-sub">Gestão de Benefícios · AMO</div>
+      </div>
+
+      <form onsubmit="tentarLogin(event)" autocomplete="on">
+        <div class="login-campo">
+          <label for="login-input">Usuário</label>
+          <input id="login-input" type="text" placeholder="Digite seu login" autocomplete="username" />
+        </div>
+        <div class="login-campo">
+          <label for="senha-input">Senha</label>
+          <div class="login-olho-wrap">
+            <input id="senha-input" type="password" placeholder="••••••••" autocomplete="current-password" />
+            <button type="button" class="btn-login-olho" onclick="toggleSenhaVisivel()" title="Mostrar/ocultar senha">
+              <svg id="olho-aberto" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+              <svg id="olho-fechado" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display:none"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
+            </button>
+          </div>
+        </div>
+
+        <label class="login-lembrar">
+          <input type="checkbox" id="login-lembrar" checked />
+          <span class="lembrar-switch"></span>
+          Lembrar de mim
+        </label>
+
+        <div id="login-erro" class="login-erro oculto">⚠ Login ou senha incorretos.</div>
+        <button id="btn-entrar" type="submit" class="login-btn-entrar">Entrar</button>
+      </form>
+
+      <p class="login-rodape">Acesso restrito · BD. FLASH X RH</p>
+    </div>
+  </div>
+
+  <!-- ========== APP PRINCIPAL (oculto até login) ========== -->
+  <div id="app-principal" class="oculto">
+
+  <!-- Banner modo configuração removido — auth via Google Sheets -->
+  </div>
+
+  <!-- ========== CABEÇALHO ========== -->
+  <header class="cabecalho">
+    <div class="cabecalho-esquerda">
+      <img src="IMAGENS/logo-amo.png" alt="Logo AMO" class="logo" />
+      <div class="cabecalho-titulo">
+        <h1>Flash RH</h1>
+        <span class="subtitulo">Gestão de Benefícios VR / VT</span>
+      </div>
+    </div>
+
+    <div class="cabecalho-direita">
+      <!-- Indicador de último salvamento (auto-save) -->
+      <div id="indicador-salvando" class="indicador-salvo oculto"></div>
+
+      <!-- Indicador de sincronização com Google Sheets -->
+      <div id="indicador-sync" class="indicador-sync oculto"></div>
+
+      <!-- Usuário logado -->
+      <div id="info-usuario" class="info-usuario oculto">
+        <span id="nome-usuario" class="nome-usuario"></span>
+        <button class="btn btn-icone" onclick="fazerLogout()" title="Sair da conta">↩ Sair</button>
+      </div>
+
+      <button id="btn-gerenciar-usuarios" class="btn btn-secundario oculto"
+              onclick="abrirGerenciarUsuarios()" title="Gerenciar usuários da plataforma">
+        👤 Usuários
+      </button>
+
+      <button id="btn-toggle-tema" class="btn btn-icone btn-toggle-tema" onclick="toggleTema()" title="Alternar modo claro/escuro">
+        ☀️
+      </button>
+    </div>
+  </header>
+
+  <!-- ========== BARRA DE ABAS ========== -->
+  <nav class="abas">
+    <button class="aba aba-ativa" onclick="trocarAba('base')" id="aba-base">
+      📋 BASE – Colaboradores
+    </button>
+    <button class="aba" onclick="trocarAba('pedido')" id="aba-pedido">
+      📑 PEDIDO BENEFÍCIO
+    </button>
+  </nav>
+
+  <!-- ========== BARRA DE FERRAMENTAS – BASE ========== -->
+  <div id="toolbar-base" class="barra-ferramentas">
+    <div class="ferramentas-esquerda">
+      <label class="btn btn-secundario ocultar-visualizador" title="Importar planilha .xlsx">
+        📁 Importar .xlsx
+        <input type="file" id="input-arquivo" accept=".xlsx,.xls,.csv"
+               onchange="importarPlanilha(event)" hidden />
+      </label>
+
+      <div class="separador ocultar-visualizador"></div>
+
+      <button class="btn btn-icone ocultar-visualizador" id="btn-desfazer" onclick="desfazer()"
+              title="Desfazer (Ctrl+Z)" disabled>↩ Desfazer</button>
+      <button class="btn btn-icone ocultar-visualizador" id="btn-refazer"  onclick="refazer()"
+              title="Refazer (Ctrl+Y)"  disabled>↪ Refazer</button>
+
+      <div class="separador ocultar-visualizador"></div>
+
+      <button class="btn btn-icone ocultar-visualizador" onclick="adicionarLinha()" title="Nova linha">
+        ➕ Nova Linha
+      </button>
+
+      <div class="separador"></div>
+
+      <!-- Toggles dos grupos de benefícios -->
+      <button id="toggle-alimentacao"
+              class="toggle-grupo toggle-grupo-alimentacao"
+              onclick="toggleGrupoBeneficio('alimentacao')"
+              title="Mostrar/ocultar colunas de Alimentação">
+        🍔 Alimentação
+      </button>
+      <button id="toggle-refeicao"
+              class="toggle-grupo toggle-grupo-refeicao"
+              onclick="toggleGrupoBeneficio('refeicao')"
+              title="Mostrar/ocultar colunas de Refeição">
+        🍽 Refeição
+      </button>
+      <button id="toggle-premiacao"
+              class="toggle-grupo toggle-grupo-premiacao"
+              onclick="toggleGrupoBeneficio('premiacao')"
+              title="Mostrar/ocultar colunas de Premiação">
+        🏆 Premiação
+      </button>
+
+      <div class="separador"></div>
+
+      <button class="btn btn-icone" onclick="abrirLogBase()" title="Ver histórico de alterações da BASE">
+        📋 Log de Alterações
+      </button>
+
+      <div class="separador"></div>
+
+      <button class="btn btn-perigo-outline ocultar-visualizador" onclick="excluirBase()" title="Apagar todos os dados importados e começar do zero">
+        🗑 Excluir BASE
+      </button>
+    </div>
+
+    <div class="ferramentas-direita">
+      <span id="indicador-alteracoes" class="indicador-alteracoes oculto">
+        ● Alterações não salvas
+      </span>
+
+      <button class="btn btn-sucesso ocultar-visualizador" id="btn-salvar" onclick="salvarDados()"
+              title="Salvar no navegador (Ctrl+S)" disabled>
+        💾 Salvar
+      </button>
+
+      <button class="btn btn-exportar ocultar-visualizador" onclick="exportarPedidoBeneficio()"
+              title="Exportar PEDIDO BENEFÍCIO como .xlsx sem fórmulas">
+        ⬇ Exportar PEDIDO BENEFÍCIO
+      </button>
+
+      <button class="btn btn-secundario ocultar-visualizador" onclick="exportarBase()"
+              title="Baixar backup completo da BASE (.xlsx) — pode reimportar depois">
+        📥 Exportar Backup
+      </button>
+
+      <button id="btn-sincronizar" class="btn btn-sync ocultar-visualizador" onclick="sincronizarManual()"
+              title="Sincronizar BASE com o Google Sheets agora">
+        ☁️ Sincronizar
+      </button>
+    </div>
+  </div>
+
+  <!-- ========== BARRA DE FERRAMENTAS – PEDIDO BENEFÍCIO (modo visualização/preview) ========== -->
+  <div id="toolbar-pedido-visualizacao" class="barra-ferramentas oculto">
+    <div class="ferramentas-esquerda">
+      <span class="tag-preview-pedido">👁 Preview gerado da BASE</span>
+
+      <div class="separador"></div>
+
+      <button class="btn btn-primario ocultar-visualizador" onclick="solicitarEdicaoPedido()">
+        ✏️ Editar PEDIDO
+      </button>
+      <button class="btn btn-icone" onclick="abrirLogEdicoes()"
+              title="Ver histórico de edições manuais">
+        📋 Log de Edições
+      </button>
+    </div>
+    <div class="ferramentas-direita">
+      <span id="badge-ultima-edicao" class="badge-ultima-edicao oculto"></span>
+      <button class="btn btn-exportar" onclick="exportarPedidoBeneficio()">
+        ⬇ Exportar PEDIDO BENEFÍCIO (.xlsx)
+      </button>
+    </div>
+  </div>
+
+  <!-- ========== BARRA DE FERRAMENTAS – PEDIDO BENEFÍCIO (modo edição manual) ========== -->
+  <div id="toolbar-pedido-edicao" class="barra-ferramentas toolbar-edicao-ativa oculto">
+    <div class="ferramentas-esquerda">
+      <span class="tag-edicao-ativa">✏️ Editando PEDIDO</span>
+
+      <div class="separador"></div>
+
+      <button class="btn btn-icone" id="btn-desfazer-pedido" onclick="desfazerPedido()"
+              title="Desfazer (Ctrl+Z)" disabled>↩ Desfazer</button>
+      <button class="btn btn-icone" id="btn-refazer-pedido"  onclick="refazerPedido()"
+              title="Refazer (Ctrl+Y)"  disabled>↪ Refazer</button>
+    </div>
+    <div class="ferramentas-direita">
+      <button class="btn btn-perigo" onclick="cancelarEdicaoPedido()"
+              title="Descartar alterações e voltar ao preview da BASE">
+        ✕ Cancelar Edição
+      </button>
+      <button class="btn btn-sucesso" onclick="salvarEdicaoPedido()"
+              title="Salvar edições e registrar no log">
+        💾 Salvar Edição
+      </button>
+      <button class="btn btn-exportar" onclick="exportarPedidoBeneficio()">
+        ⬇ Exportar .xlsx
+      </button>
+    </div>
+  </div>
+
+  <!-- ========== ÁREA DE NOTIFICAÇÕES ========== -->
+  <div id="area-notificacao" class="area-notificacao oculto">
+    <div id="notificacao" class="notificacao"></div>
+  </div>
+
+  <!-- ========== CONTEÚDO PRINCIPAL ========== -->
+  <main class="conteudo-principal">
+
+    <!-- === ABA: BASE === -->
+    <section id="painel-base" class="painel painel-ativo">
+
+      <div class="barra-busca">
+        <input type="text" id="campo-busca"
+               placeholder="🔍 Buscar por nome, departamento, gestor..."
+               oninput="filtrarTabela()" class="campo-busca" />
+        <select id="filtro-gestor" onchange="filtrarTabela()" class="select-filtro">
+          <option value="">Todos os gestores</option>
+        </select>
+        <select id="filtro-dept" onchange="filtrarTabela()" class="select-filtro">
+          <option value="">Todos os departamentos</option>
+        </select>
+        <span id="contador-linhas" class="contador-linhas">0 colaboradores</span>
+        <span id="aviso-duplicatas" class="aviso-duplicatas oculto" onclick="abrirDetalhesDuplicatas()" title="Clique para ver detalhes"></span>
+      </div>
+
+      <div class="container-tabela">
+        <table id="tabela-base" class="tabela">
+          <thead><tr id="cabecalho-base"></tr></thead>
+          <tbody id="corpo-base"></tbody>
+        </table>
+        <div id="sem-dados" class="sem-dados">
+          <div class="sem-dados-icone">📊</div>
+          <p>Nenhum dado carregado ainda.</p>
+          <p>Importe uma planilha .xlsx ou conecte ao Google Sheets.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- === ABA: PEDIDO BENEFÍCIO === -->
+    <section id="painel-pedido" class="painel oculto">
+
+      <!-- Info: PEDIDO é preview automático da BASE -->
+      <div id="info-pedido" class="info-pedido">
+        <div class="info-box">
+          <span class="info-icone">ℹ️</span>
+          <span>
+            Esta aba é gerada <strong>automaticamente</strong> a partir da BASE.
+            Para alterar dados, edite a aba <strong>BASE – Colaboradores</strong>.
+            CNPJ, CPF, ALIMENTAÇÃO, REFEIÇÃO e PREMIAÇÃO vêm das colunas da BASE.
+            Ao exportar, os valores são salvos sem fórmulas.
+          </span>
+        </div>
+      </div>
+
+      <div class="container-tabela">
+        <table id="tabela-pedido" class="tabela tabela-readonly">
+          <thead><tr id="cabecalho-pedido"></tr></thead>
+          <tbody id="corpo-pedido"></tbody>
+        </table>
+        <div id="sem-dados-pedido" class="sem-dados">
+          <div class="sem-dados-icone">📑</div>
+          <p>Os dados do PEDIDO BENEFÍCIO aparecem aqui após importar a planilha.</p>
+          <p>Importe um arquivo .xlsx que contenha a aba <strong>PEDIDO BENEFICIO</strong>.</p>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- ========== MODAL: CONFIGURAÇÃO GOOGLE SHEETS ========== -->
+  <div id="modal-config" class="modal oculto">
+    <div class="modal-caixa">
+      <div class="modal-cabecalho">
+        <h2>🔗 Conectar ao Google Sheets</h2>
+        <button class="btn-fechar" onclick="fecharModal('modal-config')">✕</button>
+      </div>
+      <div class="modal-corpo">
+        <p class="modal-descricao">
+          A conexão com o Google Sheets é <strong>opcional</strong>. Você pode trabalhar
+          importando e exportando arquivos .xlsx sem precisar conectar.<br><br>
+          Para sincronizar diretamente com a planilha, configure abaixo:
+        </p>
+
+        <div class="campo-form">
+          <label for="input-client-id">Client ID do Google</label>
+          <input type="text" id="input-client-id" placeholder="xxxx.apps.googleusercontent.com" />
+        </div>
+
+        <div class="campo-form">
+          <label for="input-spreadsheet-id">ID da Planilha</label>
+          <input type="text" id="input-spreadsheet-id"
+                 placeholder="1z01MAGSbdpenI55avlL9t0_OLL6jZlCd9ewdZsy_bXQ" />
+          <small>Encontrado na URL da planilha após /spreadsheets/d/</small>
+        </div>
+
+        <div class="campo-form">
+          <label for="input-aba-base">Nome da aba BASE</label>
+          <input type="text" id="input-aba-base" value="BASE" />
+        </div>
+
+        <div class="campo-form">
+          <label for="input-aba-pedido">Nome da aba PEDIDO BENEFÍCIO</label>
+          <input type="text" id="input-aba-pedido" value="PEDIDO BENEFICIO" />
+        </div>
+
+        <div class="modal-acoes">
+          <button class="btn btn-secundario" onclick="fecharModal('modal-config')">Cancelar</button>
+          <button class="btn btn-primario" onclick="salvarConfigEConectar()">Conectar</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========== MODAL: IMPORTAR PLANILHA ========== -->
+  <div id="modal-importacao" class="modal oculto">
+    <div class="modal-caixa modal-media">
+      <div class="modal-cabecalho">
+        <h2>📁 Importar Planilha</h2>
+        <button class="btn-fechar" onclick="fecharModalImportacao()">✕</button>
+      </div>
+      <div class="modal-corpo">
+
+        <!-- Nome do arquivo carregado -->
+        <div class="info-arquivo">
+          📄 <strong id="nome-arquivo-importacao"></strong>
+        </div>
+
+        <!-- Seleção da aba a importar -->
+        <div class="campo-form">
+          <label for="select-aba-importacao">Qual aba deseja usar para a BASE?</label>
+          <select id="select-aba-importacao" class="select-filtro" style="width:100%; padding:8px 10px;">
+          </select>
+        </div>
+
+        <!-- Informações da aba selecionada -->
+        <p id="info-importacao" class="modal-descricao" style="font-size:13px; color:#374151;"></p>
+
+        <!-- Modo de importação -->
+        <div class="campo-form">
+          <label>Como importar?</label>
+          <div class="opcoes-importacao">
+            <label class="opcao-radio">
+              <input type="radio" name="modo-importacao" value="mesclar" checked />
+              <div class="opcao-radio-conteudo">
+                <strong>Mesclar</strong>
+                <span>Adiciona novos e atualiza existentes pelo nome da primeira coluna</span>
+              </div>
+            </label>
+            <label class="opcao-radio">
+              <input type="radio" name="modo-importacao" value="sobrescrever" />
+              <div class="opcao-radio-conteudo">
+                <strong>Sobrescrever tudo</strong>
+                <span>Substitui completamente os dados atuais pelos do arquivo</span>
+              </div>
+            </label>
+          </div>
+        </div>
+
+        <div class="modal-acoes">
+          <button class="btn btn-secundario" onclick="fecharModalImportacao()">Cancelar</button>
+          <button class="btn btn-primario" onclick="confirmarImportacao()">Importar</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========== MODAL: CONFIRMAÇÃO DE EDIÇÃO DO PEDIDO ========== -->
+  <div id="modal-confirmar-edicao" class="modal oculto">
+    <div class="modal-caixa modal-pequena">
+      <div class="modal-cabecalho">
+        <h2>✏️ Editar PEDIDO BENEFÍCIO</h2>
+        <button class="btn-fechar" onclick="fecharModal('modal-confirmar-edicao')">✕</button>
+      </div>
+      <div class="modal-corpo">
+        <div class="aviso-edicao">
+          <div class="aviso-edicao-icone">⚠️</div>
+          <div>
+            <p><strong>Quer mesmo editar este arquivo?</strong></p>
+            <p>Você poderá alterar os dados do PEDIDO BENEFÍCIO manualmente.
+               Todas as alterações ficam registradas no log de edições.</p>
+            <p>Para cancelar e descartar as mudanças, use o botão
+               <strong>"Cancelar Edição"</strong> durante a edição.</p>
+          </div>
+        </div>
+        <div class="modal-acoes">
+          <button class="btn btn-secundario" onclick="fecharModal('modal-confirmar-edicao')">
+            Não, voltar
+          </button>
+          <button class="btn btn-primario" onclick="ativarEdicaoPedido()">
+            ✏️ Sim, editar
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========== MODAL: LOG DE EDIÇÕES ========== -->
+  <div id="modal-log-edicoes" class="modal oculto">
+    <div class="modal-caixa modal-larga">
+      <div class="modal-cabecalho">
+        <h2>📋 Log de Edições — PEDIDO BENEFÍCIO</h2>
+        <button class="btn-fechar" onclick="fecharModal('modal-log-edicoes')">✕</button>
+      </div>
+      <div class="modal-corpo" style="padding:0;">
+        <div id="conteudo-log" class="conteudo-log">
+          <!-- Preenchido dinamicamente por abrirLogEdicoes() -->
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========== MODAL: LOG DE ALTERAÇÕES DA BASE ========== -->
+  <div id="modal-log-base" class="modal oculto">
+    <div class="modal-caixa modal-larga">
+      <div class="modal-cabecalho">
+        <h2>📋 Log de Alterações — BASE</h2>
+        <button class="btn-fechar" onclick="fecharModal('modal-log-base')">✕</button>
+      </div>
+      <div class="modal-corpo" style="padding:0;">
+        <div id="conteudo-log-base" class="conteudo-log">
+          <!-- Preenchido dinamicamente por abrirLogBase() -->
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Barra de ações para linhas selecionadas (aparece quando há seleção) -->
+  <div id="barra-selecao" class="barra-selecao oculto">
+    <span id="selecao-contagem" class="selecao-contagem"></span>
+    <div class="selecao-acoes">
+      <button class="btn btn-primario btn-sm" onclick="abrirAplicarValorSelecionadas()"
+              title="Aplicar um valor em todas as linhas selecionadas">
+        ✏️ Aplicar valor
+      </button>
+      <button class="btn btn-perigo btn-sm" onclick="excluirLinhasSelecionadas()"
+              title="Excluir todas as linhas selecionadas">
+        🗑 Excluir selecionadas
+      </button>
+      <button class="btn btn-icone btn-sm" onclick="limparSelecao()" title="Cancelar seleção">
+        ✕ Cancelar
+      </button>
+    </div>
+  </div>
+
+  <!-- ========== MODAL: APLICAR VALOR NAS SELECIONADAS ========== -->
+  <div id="modal-aplicar-valor" class="modal oculto">
+    <div class="modal-caixa modal-pequena">
+      <div class="modal-cabecalho">
+        <h2>✏️ Aplicar valor em selecionadas</h2>
+        <button class="btn-fechar" onclick="fecharModal('modal-aplicar-valor')">✕</button>
+      </div>
+      <div class="modal-corpo">
+        <p style="font-size:13px;color:var(--cinza-500);margin-bottom:16px;">
+          O valor será aplicado em todas as linhas selecionadas para a coluna escolhida.
+        </p>
+        <div style="margin-bottom:12px;">
+          <label style="display:block;font-size:12px;font-weight:600;color:var(--cinza-600);margin-bottom:5px;">COLUNA</label>
+          <select id="aplicar-coluna-sel" style="width:100%;padding:8px;border:1px solid var(--cinza-300);border-radius:4px;font-size:13px;"></select>
+        </div>
+        <div style="margin-bottom:20px;">
+          <label style="display:block;font-size:12px;font-weight:600;color:var(--cinza-600);margin-bottom:5px;">VALOR</label>
+          <input id="aplicar-valor-input" type="text" placeholder="Ex: 22 ou R$ 15,00"
+                 style="width:100%;padding:8px;border:1px solid var(--cinza-300);border-radius:4px;font-size:13px;"
+                 onkeydown="if(event.key==='Enter') confirmarAplicarValor()" />
+        </div>
+        <div class="modal-acoes">
+          <button class="btn btn-secundario" onclick="fecharModal('modal-aplicar-valor')">Cancelar</button>
+          <button class="btn btn-primario" onclick="confirmarAplicarValor()">✅ Aplicar</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Overlay escuro para modais -->
+  <div id="overlay" class="overlay oculto" onclick="fecharTodosModais()"></div>
+
+  <!-- ========== MODAL: GERENCIAR USUÁRIOS ========== -->
+  <div id="modal-usuarios" class="modal oculto">
+    <div class="modal-caixa modal-larga">
+      <div class="modal-cabecalho">
+        <h2>⚙️ Configurações</h2>
+        <button class="btn-fechar" onclick="fecharModal('modal-usuarios')">✕</button>
+      </div>
+      <div class="modal-corpo" style="padding:0;">
+
+        <!-- STATUS DA CONEXÃO -->
+        <div id="painel-conexao" class="painel-conexao">
+          <div class="conexao-info">
+            <div id="conexao-icone" class="conexao-icone">☁️</div>
+            <div>
+              <div id="conexao-titulo" class="conexao-titulo">Google Sheets</div>
+              <div id="conexao-subtitulo" class="conexao-subtitulo">Verificando conexão...</div>
+            </div>
+          </div>
+          <div class="conexao-acoes">
+            <button id="btn-reconectar" class="btn btn-secundario btn-sm" onclick="abrirPainelConexao()" title="Alterar URL da API">🔗 Configurar</button>
+            <button id="btn-desconectar" class="btn btn-perigo-outline btn-sm oculto" onclick="limparApiUrl()">Desconectar</button>
+            <button class="btn btn-perigo-outline btn-sm" onclick="fazerLogout()">↩ Sair da conta</button>
+          </div>
+        </div>
+
+        <!-- PAINEL DE CONFIGURAÇÃO DA URL (colapsável) -->
+        <div id="painel-url-api" class="painel-url-api oculto">
+          <p class="painel-url-api-desc">Cole a URL do Web App gerada pelo Apps Script da planilha <strong>BD. FLASH X RH</strong>.</p>
+          <div style="display:flex; gap:8px;">
+            <input id="input-api-url" type="text" placeholder="https://script.google.com/macros/s/..." style="flex:1; font-size:12px;" />
+            <button class="btn btn-primario" onclick="salvarApiUrl()">Salvar</button>
+          </div>
+        </div>
+
+        <!-- TABS internas -->
+        <div class="modal-tabs">
+          <button class="modal-tab modal-tab-ativa" onclick="trocarModalTab('usuarios', this)">👥 Usuários</button>
+          <button class="modal-tab" onclick="trocarModalTab('log', this)">📋 Log</button>
+          <button class="modal-tab" onclick="trocarModalTab('conta', this)">🔑 Minha Conta</button>
+        </div>
+
+        <!-- TAB: USUÁRIOS -->
+        <div id="modal-tab-usuarios" class="modal-tab-painel" style="padding:20px;">
+
+          <!-- Formulário de novo usuário (só Admin/Dev) -->
+          <div id="form-novo-usuario" class="form-novo-usuario oculto">
+            <div class="form-novo-usuario-titulo">➕ Novo usuário</div>
+            <div class="form-novo-campos">
+              <input id="nu-nome"  type="text" placeholder="Nome completo" />
+              <input id="nu-login" type="text" placeholder="Login (ex: joao.s)" />
+              <div class="nu-senha-wrap">
+                <input id="nu-senha"    type="password" placeholder="Senha" />
+                <button type="button" class="nu-olho" onclick="toggleNuSenha('nu-senha', this)" title="Mostrar senha">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                </button>
+              </div>
+              <div class="nu-senha-wrap">
+                <input id="nu-confirma" type="password" placeholder="Confirmar senha" />
+                <button type="button" class="nu-olho" onclick="toggleNuSenha('nu-confirma', this)" title="Mostrar senha">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                </button>
+              </div>
+              <select id="nu-nivel">
+                <option value="Visualizador">Visualizador</option>
+                <option value="Admin">Admin</option>
+                <option value="Dev">Dev</option>
+              </select>
+              <button class="btn btn-primario btn-sm" onclick="criarNovoUsuario()">Criar usuário</button>
+            </div>
+            <div id="nu-erro" class="nu-erro oculto"></div>
+          </div>
+
+          <div id="lista-usuarios" class="lista-usuarios-grid"></div>
+          <p class="hint-planilha">Usuários gerenciados na aba <strong>USUÁRIOS</strong> da planilha BD. FLASH X RH</p>
+        </div>
+
+        <!-- TAB: MINHA CONTA -->
+        <div id="modal-tab-conta" class="modal-tab-painel oculto" style="padding:20px;">
+          <div class="minha-conta-card">
+            <div class="minha-conta-titulo">
+              <span style="font-size:20px; line-height:1;">🔑</span>
+              Alterar senha
+            </div>
+            <div class="minha-conta-campos">
+              <div class="nu-senha-wrap">
+                <input id="mc-senha-atual" type="password" placeholder="Senha atual" />
+                <button type="button" class="nu-olho" onclick="toggleNuSenha('mc-senha-atual', this)">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                </button>
+              </div>
+              <div class="nu-senha-wrap">
+                <input id="mc-senha-nova" type="password" placeholder="Nova senha" />
+                <button type="button" class="nu-olho" onclick="toggleNuSenha('mc-senha-nova', this)">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                </button>
+              </div>
+              <div class="nu-senha-wrap">
+                <input id="mc-senha-confirma" type="password" placeholder="Confirmar nova senha" />
+                <button type="button" class="nu-olho" onclick="toggleNuSenha('mc-senha-confirma', this)">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                </button>
+              </div>
+              <button class="btn btn-primario btn-sm" onclick="alterarSenhaConta()">Salvar nova senha</button>
+            </div>
+            <div id="mc-erro" class="nu-erro oculto"></div>
+          </div>
+        </div>
+
+        <!-- TAB: LOG -->
+        <div id="modal-tab-log" class="modal-tab-painel oculto" style="padding:20px;">
+          <div id="conteudo-log-sheets-inline" style="max-height:360px; overflow-y:auto;">
+            <p style="color:var(--cinza-500); text-align:center; padding:20px;">Clique em atualizar para carregar o log.</p>
+          </div>
+          <button class="btn btn-secundario" style="margin-top:12px;" onclick="atualizarLogInline()">⟳ Atualizar Log</button>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- ========== MODAL: LOG COMPARTILHADO (Google Sheets) ========== -->
+  <div id="modal-log-sheets" class="modal oculto">
+    <div class="modal-caixa modal-larga">
+      <div class="modal-cabecalho">
+        <h2>📋 Log Compartilhado</h2>
+        <button class="btn-fechar" onclick="fecharModal('modal-log-sheets')">✕</button>
+      </div>
+      <div class="modal-corpo">
+        <div id="conteudo-log-sheets" style="max-height:420px; overflow-y:auto;">
+          <p style="color:var(--cinza-500); text-align:center; padding:20px;">Carregando...</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  </div><!-- fim #app-principal -->
+
+  <!-- ========== MODAL DE CONFIRMAÇÃO GLOBAL ========== -->
+  <div id="modal-confirmar" class="modal-confirmar-overlay oculto" role="dialog" aria-modal="true">
+    <div class="modal-confirmar-caixa">
+      <div class="modal-confirmar-icone" id="modal-confirmar-icone">⚠️</div>
+      <p class="modal-confirmar-msg" id="modal-confirmar-msg"></p>
+      <div class="modal-confirmar-acoes">
+        <button class="btn btn-secundario" id="modal-confirmar-cancelar">Cancelar</button>
+        <button class="btn" id="modal-confirmar-ok">Confirmar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========== SCRIPTS ========== -->
+  <script src="js/estado.js"></script>
+  <script src="js/calcular.js"></script>
+  <script src="js/sheets.js"></script>
+  <script src="js/tabela.js"></script>
+  <script src="js/importar.js"></script>
+  <script src="js/exportar.js"></script>
+  <script src="js/api.js"></script>
+  <script src="js/auth.js"></script>
+  <script src="js/app.js"></script>
+
+</body>
+</html>
