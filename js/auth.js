@@ -236,7 +236,10 @@ async function fazerLogout() {
 // Exibe o app principal (esconde tela de login)
 // -----------------------------------------------
 function _abrirApp() {
-  document.getElementById('tela-login')?.classList.add('oculto');
+  // Remove do DOM (não só oculta) para impedir que o Chrome faça autofill
+  // nos campos do app usando as credenciais salvas da tela de login
+  const telaLogin = document.getElementById('tela-login');
+  if (telaLogin) telaLogin.remove();
   document.getElementById('app-principal')?.classList.remove('oculto');
   _atualizarInfoUsuario();
   _aplicarPermissoes();
