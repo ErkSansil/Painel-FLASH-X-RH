@@ -924,9 +924,23 @@ function confirmarAplicarValor() {
   if (_eColunaMoeda(coluna)) valorFmt = _formatarMoeda(valor);
   else if (/^CPF$/i.test(coluna)) valorFmt = _formatarCPF(valor);
 
+  if (!Estado._alteracoesAtuaisBase) Estado._alteracoesAtuaisBase = [];
+  const nomeColBase = Estado.colunasBase[IDX_BASE_NOME] || Estado.colunasBase[0];
+  const hora = new Date().toLocaleTimeString('pt-BR');
+
   linhasSelecionadas.forEach(id => {
     const idx = Estado.dadosBase.findIndex(l => l._id === id);
-    if (idx >= 0) Estado.dadosBase[idx][coluna] = valorFmt;
+    if (idx < 0) return;
+    const valorAntigo = Estado.dadosBase[idx][coluna] ?? '';
+    Estado.dadosBase[idx][coluna] = valorFmt;
+    Estado._alteracoesAtuaisBase.push({
+      linha:       idx + 1,
+      colaborador: Estado.dadosBase[idx][nomeColBase] || `Linha ${idx + 1}`,
+      coluna,
+      valorAntigo,
+      valorNovo:   valorFmt,
+      hora,
+    });
   });
 
   Estado.marcarAlterado();

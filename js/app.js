@@ -22,6 +22,10 @@ document.addEventListener('DOMContentLoaded', function () {
 async function _iniciarApp() {
   Estado.carregarConfig();
 
+  // Força limpeza do campo de busca — Chrome pode ter feito autofill com credenciais salvas
+  const campoBusca = document.getElementById('campo-busca');
+  if (campoBusca) campoBusca.value = '';
+
   const salvadoEm = Estado.carregarLocal();
   if (salvadoEm) {
     if (Estado.dadosBase.length > 0) _garantirColunasExtras();

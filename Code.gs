@@ -54,6 +54,9 @@ function doGet(e) {
       case 'removerUsuario':
         resultado = _removerUsuario(p.login, p.senha, p.alvo);
         break;
+      case 'adicionarUsuario':
+        resultado = _adicionarUsuario({ login: p.login, senha: p.senha, nome: p.nome, novoLogin: p.novoLogin, novaSenha: p.novaSenha, novoNivel: p.novoNivel });
+        break;
       default:
         resultado = { ok: false, erro: 'Ação inválida' };
     }

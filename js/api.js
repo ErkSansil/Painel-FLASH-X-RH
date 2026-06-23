@@ -165,18 +165,9 @@ const Api = {
   async adicionarUsuario(loginAdmin, senhaAdmin, { nome, novoLogin, novaSenha, novoNivel }) {
     if (!this.url) return null;
     try {
-      await fetch(this.url, {
-        method:  'POST',
-        mode:    'no-cors',
-        headers: { 'Content-Type': 'text/plain' },
-        body: JSON.stringify({ acao: 'adicionarUsuario', login: loginAdmin, senha: senhaAdmin, nome, novoLogin, novaSenha, novoNivel }),
-      });
-      // Aguarda processamento e verifica via lista
-      await new Promise(r => setTimeout(r, 2000));
-      const lista = await this.getUsuarios(loginAdmin, senhaAdmin);
-      if (!lista || !lista.ok) return { ok: true }; // assume ok se não conseguir verificar
-      const criado = lista.usuarios.some(u => (u.LOGIN || u.login || '').toLowerCase() === novoLogin.toLowerCase());
-      return criado ? { ok: true } : { ok: false, erro: 'Login já existe ou erro ao criar' };
+      const params = new URLSearchParams({ acao: 'adicionarUsuario', login: loginAdmin, senha: senhaAdmin, nome, novoLogin, novaSenha, novoNivel });
+      const res = await fetch(`${this.url}?${params}`, { redirect: 'follow' });
+      return await res.json();
     } catch {
       return null;
     }
