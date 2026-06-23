@@ -132,6 +132,7 @@ function renderizarTabelaBase() {
         <input
           class="celula-editavel${readonly ? ' celula-calculada' : ''}${isMoeda ? ' celula-moeda' : ''}"
           type="text"
+          autocomplete="off"
           value="${escaparHtml(String(valor))}"
           data-linha="${idxReal}"
           data-coluna="${escaparHtml(col)}"
@@ -205,6 +206,7 @@ function renderizarTabelaPedido() {
           <input
             class="celula-editavel"
             type="text"
+            autocomplete="off"
             value="${escaparHtml(String(valor))}"
             data-idx="${idx}"
             data-col="${escaparHtml(col)}"

@@ -261,7 +261,8 @@
       <div class="barra-busca">
         <input type="text" id="campo-busca"
                placeholder="🔍 Buscar por nome, departamento, gestor..."
-               oninput="filtrarTabela()" class="campo-busca" />
+               oninput="filtrarTabela()" class="campo-busca"
+               autocomplete="off" />
         <select id="filtro-gestor" onchange="filtrarTabela()" class="select-filtro">
           <option value="">Todos os gestores</option>
         </select>
@@ -332,24 +333,24 @@
 
         <div class="campo-form">
           <label for="input-client-id">Client ID do Google</label>
-          <input type="text" id="input-client-id" placeholder="xxxx.apps.googleusercontent.com" />
+          <input type="text" id="input-client-id" placeholder="xxxx.apps.googleusercontent.com" autocomplete="off" />
         </div>
 
         <div class="campo-form">
           <label for="input-spreadsheet-id">ID da Planilha</label>
           <input type="text" id="input-spreadsheet-id"
-                 placeholder="1z01MAGSbdpenI55avlL9t0_OLL6jZlCd9ewdZsy_bXQ" />
+                 placeholder="1z01MAGSbdpenI55avlL9t0_OLL6jZlCd9ewdZsy_bXQ" autocomplete="off" />
           <small>Encontrado na URL da planilha após /spreadsheets/d/</small>
         </div>
 
         <div class="campo-form">
           <label for="input-aba-base">Nome da aba BASE</label>
-          <input type="text" id="input-aba-base" value="BASE" />
+          <input type="text" id="input-aba-base" value="BASE" autocomplete="off" />
         </div>
 
         <div class="campo-form">
           <label for="input-aba-pedido">Nome da aba PEDIDO BENEFÍCIO</label>
-          <input type="text" id="input-aba-pedido" value="PEDIDO BENEFICIO" />
+          <input type="text" id="input-aba-pedido" value="PEDIDO BENEFICIO" autocomplete="off" />
         </div>
 
         <div class="modal-acoes">
@@ -510,6 +511,7 @@
           <label style="display:block;font-size:12px;font-weight:600;color:var(--cinza-600);margin-bottom:5px;">VALOR</label>
           <input id="aplicar-valor-input" type="text" placeholder="Ex: 22 ou R$ 15,00"
                  style="width:100%;padding:8px;border:1px solid var(--cinza-300);border-radius:4px;font-size:13px;"
+                 autocomplete="off"
                  onkeydown="if(event.key==='Enter') confirmarAplicarValor()" />
         </div>
         <div class="modal-acoes">
@@ -552,7 +554,7 @@
         <div id="painel-url-api" class="painel-url-api oculto">
           <p class="painel-url-api-desc">Cole a URL do Web App gerada pelo Apps Script da planilha <strong>BD. FLASH X RH</strong>.</p>
           <div style="display:flex; gap:8px;">
-            <input id="input-api-url" type="text" placeholder="https://script.google.com/macros/s/..." style="flex:1; font-size:12px;" />
+            <input id="input-api-url" type="text" placeholder="https://script.google.com/macros/s/..." style="flex:1; font-size:12px;" autocomplete="off" />
             <button class="btn btn-primario" onclick="salvarApiUrl()">Salvar</button>
           </div>
         </div>
@@ -571,16 +573,16 @@
           <div id="form-novo-usuario" class="form-novo-usuario oculto">
             <div class="form-novo-usuario-titulo">➕ Novo usuário</div>
             <div class="form-novo-campos">
-              <input id="nu-nome"  type="text" placeholder="Nome completo" />
-              <input id="nu-login" type="text" placeholder="Login (ex: joao.s)" />
+              <input id="nu-nome"  type="text" placeholder="Nome completo" autocomplete="off" />
+              <input id="nu-login" type="text" placeholder="Login (ex: joao.s)" autocomplete="off" />
               <div class="nu-senha-wrap">
-                <input id="nu-senha"    type="password" placeholder="Senha" />
+                <input id="nu-senha"    type="password" placeholder="Senha" autocomplete="new-password" />
                 <button type="button" class="nu-olho" onclick="toggleNuSenha('nu-senha', this)" title="Mostrar senha">
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
                 </button>
               </div>
               <div class="nu-senha-wrap">
-                <input id="nu-confirma" type="password" placeholder="Confirmar senha" />
+                <input id="nu-confirma" type="password" placeholder="Confirmar senha" autocomplete="new-password" />
                 <button type="button" class="nu-olho" onclick="toggleNuSenha('nu-confirma', this)" title="Mostrar senha">
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
                 </button>
@@ -608,19 +610,19 @@
             </div>
             <div class="minha-conta-campos">
               <div class="nu-senha-wrap">
-                <input id="mc-senha-atual" type="password" placeholder="Senha atual" />
+                <input id="mc-senha-atual" type="password" placeholder="Senha atual" autocomplete="current-password" />
                 <button type="button" class="nu-olho" onclick="toggleNuSenha('mc-senha-atual', this)">
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
                 </button>
               </div>
               <div class="nu-senha-wrap">
-                <input id="mc-senha-nova" type="password" placeholder="Nova senha" />
+                <input id="mc-senha-nova" type="password" placeholder="Nova senha" autocomplete="new-password" />
                 <button type="button" class="nu-olho" onclick="toggleNuSenha('mc-senha-nova', this)">
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
                 </button>
               </div>
               <div class="nu-senha-wrap">
-                <input id="mc-senha-confirma" type="password" placeholder="Confirmar nova senha" />
+                <input id="mc-senha-confirma" type="password" placeholder="Confirmar nova senha" autocomplete="new-password" />
                 <button type="button" class="nu-olho" onclick="toggleNuSenha('mc-senha-confirma', this)">
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
                 </button>

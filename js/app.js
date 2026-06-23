@@ -468,7 +468,6 @@ async function salvarDados() {
       }
     }
 
-    if (Estado.conectado && Estado.token) salvarNoSheets();
   } else {
     mostrarNotificacao('Erro ao salvar. Armazenamento pode estar cheio.', 'erro');
   }
