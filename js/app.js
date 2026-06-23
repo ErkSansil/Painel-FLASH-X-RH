@@ -40,6 +40,7 @@ async function _iniciarApp() {
 
   Estado.atualizarBotoesHistorico();
   Estado.atualizarBotoesHistoricoPedido();
+  _atualizarBtnPuxarBase();
   _timerAutoSave = setInterval(_autoSave, 30_000);
   document.addEventListener('keydown', _atalhos);
   window.addEventListener('beforeunload', e => {
@@ -83,8 +84,62 @@ async function _sincronizarBaseNaAbertura() {
   if (!isoLocal || new Date(isoRemoto) > new Date(isoLocal)) {
     _carregarBaseDoSheets(remoto);
   } else {
-    _atualizarIndicadorSync('ok', remoto.timestamp, remoto.usuario);
+    _atualizarIndicadorSync('ok', _formatarTs(remoto.timestamp), remoto.usuario);
   }
+}
+
+// Mostra o botão "Puxar BASE" só quando a BASE está vazia
+function _atualizarBtnPuxarBase() {
+  const btn = document.getElementById('btn-puxar-base');
+  if (!btn) return;
+  const vazio = !Estado.dadosBase || Estado.dadosBase.length === 0;
+  btn.style.display  = vazio ? '' : 'none';
+  btn.disabled       = !vazio;
+}
+
+// -----------------------------------------------
+// PUXAR BASE — carrega a última BASE sincronizada do Sheets manualmente.
+// Útil para novos usuários ou quando o painel está vazio.
+// -----------------------------------------------
+async function puxarBaseDoSheets() {
+  if (!Api.configurado) {
+    mostrarNotificacao('Google Sheets não configurado. Configure em ⚙️ Configurações.', 'aviso');
+    return;
+  }
+
+  const btn = document.getElementById('btn-puxar-base');
+  if (btn) { btn.disabled = true; btn.textContent = '⟳ Buscando...'; }
+
+  let remoto = null;
+  try {
+    remoto = await Api.carregarBase();
+  } catch { /* rede indisponível */ }
+
+  if (btn) {
+    btn.disabled = false;
+    btn.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:4px"><polyline points="8 17 12 21 16 17"/><line x1="12" y1="3" x2="12" y2="21"/></svg>Puxar BASE`;
+  }
+
+  if (!remoto) {
+    mostrarNotificacao('Não foi possível conectar ao Google Sheets.', 'erro');
+    return;
+  }
+
+  if (!remoto.iso || !remoto.dadosBase || remoto.dadosBase === '[]') {
+    mostrarNotificacao('Nenhuma BASE sincronizada encontrada no Sheets.', 'aviso');
+    return;
+  }
+
+  // Se já houver dados locais, confirma antes de sobrescrever
+  if (Estado.dadosBase.length > 0) {
+    const ok = await confirmar(
+      `Já existe uma BASE com ${Estado.dadosBase.length} colaboradores. Deseja substituir pelos dados do Sheets?`,
+      { icone: '☁️', ok: 'Substituir', cancelar: 'Cancelar' }
+    );
+    if (!ok) return;
+  }
+
+  _carregarBaseDoSheets(remoto);
 }
 
 // Aplica os dados vindos do Sheets na tabela
@@ -103,14 +158,16 @@ function _carregarBaseDoSheets(remoto) {
     renderizarTabelaBase();
     preencherFiltros();
     atualizarBadgeUltimaEdicao();
+    _atualizarBtnPuxarBase();
 
     // Salva localmente para fallback offline
     Estado.salvarLocal();
     localStorage.setItem('flashrh_sync_iso', remoto.iso);
 
-    _atualizarIndicadorSync('ok', remoto.timestamp, remoto.usuario);
+    const tsFormatado = _formatarTs(remoto.timestamp);
+    _atualizarIndicadorSync('ok', tsFormatado, remoto.usuario);
     _animarTabelaSync();
-    mostrarNotificacao(`☁️ Tabela atualizada — salva por ${remoto.usuario} em ${remoto.timestamp}`, 'sucesso');
+    mostrarNotificacao(`☁️ Tabela atualizada — salva por ${remoto.usuario} em ${tsFormatado}`, 'sucesso');
   } catch (err) {
     _atualizarIndicadorSync('offline');
   }
@@ -122,6 +179,21 @@ function _animarTabelaSync() {
   if (!tabela) return;
   tabela.classList.add('tabela-sync-flash');
   setTimeout(() => tabela.classList.remove('tabela-sync-flash'), 1200);
+}
+
+// Converte qualquer formato de timestamp para data/hora brasileira legível.
+// Aceita: "dd/mm/yyyy HH:MM:SS" (já correto), ISO string, ou Date.toString().
+function _formatarTs(ts) {
+  if (!ts) return '';
+  const s = String(ts).trim();
+  // Já está no formato dd/mm/yyyy — retorna como está
+  if (/^\d{2}\/\d{2}\/\d{4}/.test(s)) return s;
+  // Tenta parsear como data (ISO ou Date.toString) e reformatar em PT-BR
+  const d = new Date(s);
+  if (!isNaN(d)) {
+    return d.toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' });
+  }
+  return s;
 }
 
 // Atualiza o indicador visual de sincronização no cabeçalho
@@ -361,6 +433,7 @@ async function excluirBase() {
 
   renderizarTabelaBase();
   preencherFiltros();
+  _atualizarBtnPuxarBase();
   mostrarNotificacao('BASE excluída. Importe uma nova planilha para começar.', 'info');
 }
 
@@ -457,56 +530,91 @@ function abrirLogEdicoes() {
 }
 
 // -----------------------------------------------
+// Monta o HTML de uma lista de alterações para o log
+// -----------------------------------------------
+function _renderizarItensLog(alteracoes) {
+  return alteracoes.map(a => `
+    <div class="log-item">
+      <span class="log-item-hora">${a.hora || '—'}</span>
+      <span class="log-item-colaborador" title="${escaparHtml(a.colaborador || '')}">${escaparHtml(a.colaborador || '—')}</span>
+      <span class="log-item-coluna">${escaparHtml(a.coluna || '—')}</span>
+      <span class="log-item-valores">
+        <span class="log-valor-antigo">${escaparHtml(String(a.valorAntigo ?? '—'))}</span>
+        <span class="log-seta-valor">→</span>
+        <span class="log-valor-novo">${escaparHtml(String(a.valorNovo ?? '—'))}</span>
+      </span>
+    </div>`).join('');
+}
+
+// -----------------------------------------------
 // Log de alterações da BASE
+// Mostra mudanças pendentes (ainda não salvas) + histórico salvo
 // -----------------------------------------------
 function abrirLogBase() {
   const container = document.getElementById('conteudo-log-base');
-  const logs = Estado.logEdicoesBase || [];
+  const logs      = Estado.logEdicoesBase      || [];
+  const pendentes = Estado._alteracoesAtuaisBase || [];
 
-  if (logs.length === 0) {
+  if (logs.length === 0 && pendentes.length === 0) {
     container.innerHTML = `
       <div class="log-vazio">
         <div class="log-vazio-icone">📋</div>
         <p>Nenhuma alteração registrada ainda.</p>
-        <p>Edite células da BASE e salve para ver o histórico aqui.</p>
+        <p>Edite células da BASE — as alterações aparecem aqui em tempo real.</p>
       </div>`;
-  } else {
-    const sessoes = [...logs].reverse();
-    container.innerHTML = sessoes.map((sessao, idx) => {
-      const id  = `sessao-base-${idx}`;
-      const qtd = sessao.alteracoes.length;
-      const itens = sessao.alteracoes.map(a => `
-        <div class="log-item">
-          <span class="log-item-hora">${a.hora}</span>
-          <span class="log-item-colaborador" title="${escaparHtml(a.colaborador)}">${escaparHtml(a.colaborador)}</span>
-          <span class="log-item-coluna">${escaparHtml(a.coluna)}</span>
-          <span class="log-item-valores">
-            <span class="log-valor-antigo">${escaparHtml(String(a.valorAntigo || '—'))}</span>
-            <span class="log-seta-valor">→</span>
-            <span class="log-valor-novo">${escaparHtml(String(a.valorNovo || '—'))}</span>
-          </span>
-        </div>`).join('');
-
-      return `
-        <div class="log-sessao">
-          <div class="log-sessao-cabecalho" onclick="toggleSessaoLog('${id}')">
-            <div class="log-sessao-titulo">
-              📝 ${sessao.dataHoraFormatada}
-              <span class="log-sessao-badge">${qtd} alteraç${qtd !== 1 ? 'ões' : 'ão'}</span>
-            </div>
-            <span class="log-sessao-seta" id="seta-${id}">▼</span>
-          </div>
-          <div class="log-alteracoes" id="${id}">
-            <div class="log-cabecalho-colunas">
-              <span>Hora</span><span>Colaborador</span><span>Campo</span><span>Alteração</span>
-            </div>
-            ${itens}
-          </div>
-        </div>`;
-    }).join('');
-
-    toggleSessaoLog('sessao-base-0');
+    abrirModal('modal-log-base');
+    return;
   }
+
+  let html = '';
+
+  // Bloco de alterações pendentes (não salvas ainda) — aparece no topo
+  if (pendentes.length > 0) {
+    const qtd = pendentes.length;
+    html += `
+      <div class="log-sessao log-sessao-pendente">
+        <div class="log-sessao-cabecalho" onclick="toggleSessaoLog('log-base-pendente')">
+          <div class="log-sessao-titulo">
+            ⏳ Não salvas ainda
+            <span class="log-sessao-badge">${qtd} alteraç${qtd !== 1 ? 'ões' : 'ão'}</span>
+          </div>
+          <span class="log-sessao-seta aberto" id="seta-log-base-pendente">▼</span>
+        </div>
+        <div class="log-alteracoes aberto" id="log-base-pendente">
+          <div class="log-cabecalho-colunas">
+            <span>Hora</span><span>Colaborador</span><span>Campo</span><span>Alteração</span>
+          </div>
+          ${_renderizarItensLog(pendentes)}
+        </div>
+      </div>`;
+  }
+
+  // Histórico de sessões já salvas (mais recente primeiro)
+  html += [...logs].reverse().map((sessao, idx) => {
+    const id  = `log-base-${idx}`;
+    const qtd = sessao.alteracoes.length;
+    return `
+      <div class="log-sessao">
+        <div class="log-sessao-cabecalho" onclick="toggleSessaoLog('${id}')">
+          <div class="log-sessao-titulo">
+            📝 ${sessao.dataHoraFormatada}
+            <span class="log-sessao-badge">${qtd} alteraç${qtd !== 1 ? 'ões' : 'ão'}</span>
+          </div>
+          <span class="log-sessao-seta" id="seta-${id}">▼</span>
+        </div>
+        <div class="log-alteracoes" id="${id}">
+          <div class="log-cabecalho-colunas">
+            <span>Hora</span><span>Colaborador</span><span>Campo</span><span>Alteração</span>
+          </div>
+          ${_renderizarItensLog(sessao.alteracoes)}
+        </div>
+      </div>`;
+  }).join('');
+
+  container.innerHTML = html;
+
+  // Abre automaticamente a primeira sessão salva (se não houver pendentes)
+  if (pendentes.length === 0) toggleSessaoLog('log-base-0');
 
   abrirModal('modal-log-base');
 }

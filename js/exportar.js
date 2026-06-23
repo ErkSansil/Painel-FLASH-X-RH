@@ -1,12 +1,13 @@
 /* ================================================
-   EXPORTAÇÃO DO PEDIDO BENEFÍCIO
-   Gera .xlsx com valores puros (sem fórmulas),
-   CNPJ/CPF como texto, colunas centralizadas.
-   Usa xlsx-js-style para suporte a estilos.
-   ================================================ */
+   EXPORTAÇÃO — PEDIDO BENEFÍCIO e BACKUP DA BASE
+   Usa xlsx-js-style para estilos (bordas, cores, negrito).
 
-// Colunas que devem ser exportadas como TEXTO puro (sem conversão para número)
-const COLUNAS_TEXTO = ['CNPJ', 'CPF'];
+   Tipos de célula:
+     'cabecalho' → fundo azul, texto branco, negrito
+     'texto'     → string pura (CNPJ, CPF, textos gerais)
+     'numero'    → número decimal (VT, VR e similares) — re-importável
+     'moeda'     → número com formato "#,##0.00" (PEDIDO BENEFÍCIO)
+   ================================================ */
 
 // Colunas monetárias do PEDIDO (nomes exatos do xlsx, sem acento)
 const COLUNAS_MOEDA_RE = /MOBILIDADE|ALIMENTACAO|REFEICAO|PREMIACAO|ALIMENTA[CÇ]|REFEI[CÇ]|PREMIA[CÇ]/i;
@@ -178,18 +179,29 @@ function _celulaEstilizada(valor, tipo, nomeColuna) {
     };
   }
 
-  // Colunas monetárias: número com 2 casas decimais
-  if (tipo === 'moeda') {
-    const num = parseMoeda(valor);
+  // VT/VR e similares: número puro sem símbolo (re-importável sem perda de dados)
+  if (tipo === 'numero') {
+    const num = parseMoeda(valor); // suporta "18.76", "R$ 18,76" e number
     return {
-      v: num,
+      v: isNaN(num) ? 0 : num,
       t: 'n',
-      z: '#,##0.00',   // formato de número com vírgula (padrão Excel)
+      z: '0.00',
       s: estiloBase,
     };
   }
 
-  // Célula genérica: tenta manter como texto
+  // Colunas monetárias do PEDIDO: número com formato contábil brasileiro
+  if (tipo === 'moeda') {
+    const num = parseMoeda(valor);
+    return {
+      v: isNaN(num) ? 0 : num,
+      t: 'n',
+      z: '#,##0.00',
+      s: estiloBase,
+    };
+  }
+
+  // Célula genérica: exporta como texto puro
   const str = String(valor ?? '');
   return {
     v: str,
@@ -199,12 +211,17 @@ function _celulaEstilizada(valor, tipo, nomeColuna) {
 }
 
 // -----------------------------------------------
-// Determina o tipo de uma coluna para formatação
+// Determina o tipo de célula para formatação/exportação:
+//   'texto'  → string pura (CPF, CNPJ, nomes, status)
+//   'numero' → decimal sem símbolo (VT, VR — re-importável)
+//   'moeda'  → decimal com formato contábil (valores do PEDIDO)
 // -----------------------------------------------
 function _tipoColuna(nomeColuna) {
   if (!nomeColuna) return 'texto';
   if (/cnpj|cpf/i.test(nomeColuna)) return 'texto';
   if (COLUNAS_MOEDA_RE.test(nomeColuna)) return 'moeda';
+  // VT e VR são taxas diárias numéricas — exporta como número puro para permitir re-import
+  if (/^(VT|VR)$/i.test(nomeColuna)) return 'numero';
   return 'texto';
 }
 

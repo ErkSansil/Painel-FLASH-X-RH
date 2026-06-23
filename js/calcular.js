@@ -30,7 +30,6 @@ const IDX_BASE_VR    = 5;   // F — VR (taxa por dia)
 const IDX_BASE_DIAS  = 7;   // H — DIAS trabalhados
 const IDX_BASE_VT2   = 8;   // I — VT total calculado (= DIAS × VT → 'VT (2)')
 const IDX_BASE_VR2   = 9;   // J — VR total calculado (= DIAS × VR → 'VR (2)')
-const IDX_BASE_VAL   = 10;  // K — VALIDAÇÃO
 
 /* ---- Colunas de identificação (extras da plataforma na BASE) ---- */
 const COL_CPF   = 'CPF';
@@ -76,7 +75,6 @@ const COLUNAS_EXTRAS_BASE = [
 function recalcularTudo() {
   recalcularBaseIJ();
   recalcularPedidoBeneficio();
-  recalcularBaseK();
 }
 
 /* ================================================
@@ -193,30 +191,6 @@ function recalcularPedidoBeneficio() {
 }
 
 /* ================================================
-   STEP 3 — BASE coluna K (VALIDAÇÃO)
-   "Ok" se o nome existe no PEDIDO gerado
-   ================================================ */
-function recalcularBaseK() {
-  if (!Estado.dadosBase || !Estado.dadosBase.length) return;
-
-  const cols   = Estado.colunasBase;
-  const cNomeB = cols[IDX_BASE_NOME];
-  const cVal   = cols[IDX_BASE_VAL];
-  if (!cNomeB || !cVal) return;
-
-  const nomesPedido = new Set();
-  (Estado.dadosPedido || []).forEach(l => {
-    const n = _norm(l['NOME COMPLETO']);
-    if (n) nomesPedido.add(n);
-  });
-
-  Estado.dadosBase.forEach(l => {
-    if (!nomesPedido.size) { l[cVal] = ''; return; }
-    l[cVal] = nomesPedido.has(_norm(l[cNomeB])) ? 'Ok' : 'Verificar';
-  });
-}
-
-/* ================================================
    Gera PEDIDO do zero a partir da BASE
    (usado na inicialização quando não há dados salvos)
    ================================================ */
@@ -239,10 +213,33 @@ function _norm(texto) {
 function _num(valor) {
   if (valor === null || valor === undefined || valor === '') return 0;
   if (typeof valor === 'number') return isNaN(valor) ? 0 : valor;
-  const s = String(valor)
-    .replace(/R\$\s*/gi, '').replace(/\s/g, '')
-    .replace(/\./g, '').replace(',', '.');
-  const n = parseFloat(s);
+
+  const s = String(valor).trim()
+    .replace(/R\$\s*/gi, '')
+    .replace(/\s/g, '');
+  if (!s) return 0;
+
+  // Detecta o separador decimal pelo contexto:
+  // Se tem AMBOS ponto e vírgula → o último é o decimal.
+  // "1.234,56" → pt-BR (vírgula = decimal)  → 1234.56
+  // "1,234.56" → en-US (ponto = decimal)    → 1234.56
+  // Se só vírgula → "18,76" → decimal pt-BR → 18.76
+  // Se só ponto  → "18.76" → decimal padrão → 18.76
+  const hasDot   = s.includes('.');
+  const hasComma = s.includes(',');
+
+  let normalized;
+  if (hasDot && hasComma) {
+    normalized = s.lastIndexOf(',') > s.lastIndexOf('.')
+      ? s.replace(/\./g, '').replace(',', '.')   // pt-BR: vírgula é decimal
+      : s.replace(/,/g, '');                      // en-US: ponto é decimal
+  } else if (hasComma) {
+    normalized = s.replace(',', '.');             // só vírgula → decimal
+  } else {
+    normalized = s;                               // só ponto ou inteiro → ok
+  }
+
+  const n = parseFloat(normalized);
   return isNaN(n) ? 0 : n;
 }
 

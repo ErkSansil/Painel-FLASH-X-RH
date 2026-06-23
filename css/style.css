@@ -2112,6 +2112,19 @@ thead .td-numero {
 
 .log-sessao:last-child { border-bottom: none; }
 
+/* Sessão de alterações pendentes (não salvas) — destaque laranja */
+.log-sessao-pendente .log-sessao-cabecalho {
+  background: var(--cor-aviso-claro);
+}
+.log-sessao-pendente .log-sessao-titulo {
+  color: var(--cor-aviso);
+}
+.log-sessao-pendente .log-sessao-badge {
+  background: var(--cor-aviso);
+  color: #fff;
+}
+body.tema-claro .log-sessao-pendente .log-sessao-cabecalho { background: #fff8e1; }
+
 .log-sessao-cabecalho {
   display: flex;
   align-items: center;

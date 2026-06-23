@@ -131,6 +131,7 @@ function confirmarImportacao() {
 
   renderizarTabelaBase();
   preencherFiltros();
+  _atualizarBtnPuxarBase();
   trocarAba('base');
 
   mostrarNotificacao(
@@ -291,17 +292,27 @@ function _lerComoArrays(nomeAba) {
 }
 
 // -----------------------------------------------
-// Formata valor de célula para exibição
-// CNPJ/CPF → string pura | número → string formatada
+// Normaliza valor de célula vindo do xlsx para armazenamento interno.
+// Regras:
+//   CNPJ  → string de 14 dígitos (preserva zeros à esquerda)
+//   CPF   → string formatada "000.000.000-00"
+//   VT/VR → string numérica pura "18.76" (SEM "R$") para não quebrar re-import
+//   Data  → "dd/mm/aaaa"
+//   Número inteiro → String
+//   Demais → String trimada
+// IMPORTANTE: VT/VR devem ser armazenados SEM "R$" para que a re-importação
+// do backup funcione corretamente (parseMoeda suporta ambos os formatos).
 // -----------------------------------------------
 function _celula(valor, coluna) {
   if (valor === null || valor === undefined) return '';
 
+  // CNPJ: sempre 14 dígitos como string (evita notação científica no Sheets)
   if (coluna && /cnpj/i.test(coluna)) {
     if (typeof valor === 'number') return Math.round(valor).toString().padStart(14, '0');
     return String(valor).trim();
   }
 
+  // CPF: formata como "000.000.000-00" para exibição e armazenamento
   if (coluna && /cpf/i.test(coluna)) {
     const s = typeof valor === 'number'
       ? Math.round(valor).toString().padStart(11, '0')
@@ -312,16 +323,20 @@ function _celula(valor, coluna) {
     return String(valor).trim();
   }
 
-  // Colunas de taxa diária VT/VR → formata como moeda
+  // VT e VR: armazena como "18,76" (vírgula como decimal).
+  // _num() espera vírgula como separador decimal; parseMoeda suporta todos os formatos.
   if (coluna && /^(VT|VR)$/.test(coluna)) {
-    const n = typeof valor === 'number' ? valor : parseFloat(String(valor).replace(',', '.'));
-    return isNaN(n) || n === 0 ? '' : 'R$ ' + n.toFixed(2).replace('.', ',');
+    const s = String(valor ?? '').trim();
+    if (!s) return '';
+    const n = typeof valor === 'number' ? valor : parseMoeda(s);
+    return isNaN(n) ? '' : n.toFixed(2).replace('.', ',');
   }
 
   if (valor instanceof Date) return valor.toLocaleDateString('pt-BR');
 
   if (typeof valor === 'number') {
     if (Number.isInteger(valor)) return String(valor);
+    // Decimais usam vírgula para compatibilidade com _num()
     return valor.toFixed(2).replace('.', ',');
   }
 

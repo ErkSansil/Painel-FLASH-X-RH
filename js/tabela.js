@@ -43,11 +43,14 @@ function _grupoDaColuna(col) {
   return null;
 }
 
-// Colunas calculadas (readonly — input desabilitado)
+// Colunas calculadas automaticamente (readonly — input desabilitado na tabela)
 const COLUNAS_READONLY = new Set([
-  'VT (2)', 'VR (2)', 'VALIDAÇÃO',
+  'VT (2)', 'VR (2)',
   COL_ALIM_TOT, COL_REF_TOT, COL_PREM_TOT,
 ]);
+
+// Colunas que existem nos dados mas não devem ser exibidas na tabela
+const COLUNAS_OCULTAS = new Set(['VALIDAÇÃO']);
 
 // -----------------------------------------------
 // Alterna visibilidade de um grupo de benefícios
@@ -80,8 +83,9 @@ function renderizarTabelaBase() {
 
   semDados.style.display = 'none';
 
-  // Filtra colunas pelo grupo visível
+  // Filtra colunas pelo grupo visível e remove colunas ocultas (ex: VALIDAÇÃO)
   const colunas = Estado.colunasBase.filter(col => {
+    if (COLUNAS_OCULTAS.has(col)) return false;
     const g = _grupoDaColuna(col);
     return g === null || gruposVisiveis[g];
   });
@@ -621,8 +625,8 @@ function _atualizarCelulaCalculada(idxLinha) {
   if (!linha) return;
   const colunas = Estado.colunasBase;
 
-  // Colunas calculadas por índice fixo (VT total, VR total, Validação)
-  [IDX_BASE_VT2, IDX_BASE_VR2, IDX_BASE_VAL].forEach(idx => {
+  // Colunas calculadas por índice fixo (VT total, VR total)
+  [IDX_BASE_VT2, IDX_BASE_VR2].forEach(idx => {
     const col = colunas[idx];
     if (!col) return;
     const input = document.querySelector(`input[data-linha="${idxLinha}"][data-coluna="${col}"]`);
@@ -888,7 +892,7 @@ async function excluirLinhasSelecionadas() {
 // Abre o modal para aplicar um valor em todas as linhas selecionadas
 function abrirAplicarValorSelecionadas() {
   const colunas = Estado.colunasBase.filter(c =>
-    !COLUNAS_READONLY.has(c) && !['VALIDAÇÃO'].includes(c)
+    !COLUNAS_READONLY.has(c) && !COLUNAS_OCULTAS.has(c)
   );
   const sel = document.getElementById('aplicar-coluna-sel');
   if (sel) {

@@ -110,10 +110,15 @@ const Api = {
         }),
       });
 
-      // Aguarda o Apps Script processar (mais tempo para planilhas grandes)
-      await new Promise(r => setTimeout(r, 5000));
-      const check = await this.carregarBase();
-      return !!(check && check.iso && check.iso === iso);
+      // Verifica a gravação com até 4 tentativas de 3s (total ≤ 12s).
+      // Apps Script pode levar tempo variável dependendo do tamanho da planilha.
+      // Retorna true assim que o ISO gravado no Sheets bater com o enviado.
+      for (let i = 0; i < 4; i++) {
+        await new Promise(r => setTimeout(r, 3000));
+        const check = await this.carregarBase();
+        if (check && check.iso && check.iso.trim() === iso.trim()) return true;
+      }
+      return false;
     } catch {
       return false;
     }

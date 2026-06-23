@@ -300,17 +300,23 @@ function _salvarBase(d) {
 
   const sheet = _aba(ABA_SYNC);
   sheet.clearContents();
+  sheet.clearFormats(); // limpa formatos antigos para evitar conflitos
 
   const agora = Utilities.formatDate(
     new Date(), Session.getScriptTimeZone(), 'dd/MM/yyyy HH:mm:ss'
   );
   const iso = d.isoTimestamp || new Date().toISOString();
 
-  // Linha 1: metadados
-  sheet.getRange(1, 1, 1, 4).setValues([['##META', agora, d.usuario || '', iso]]);
+  // Linha 1: metadados — formato '@' (texto puro) ANTES de setValues para que o Sheets
+  // não converta automaticamente o ISO timestamp para Date (o que quebraria a verificação)
+  const metaRange = sheet.getRange(1, 1, 1, 4);
+  metaRange.setNumberFormat('@');
+  metaRange.setValues([['##META', agora, d.usuario || '', iso]]);
 
-  // Linha 2: cabeçalhos
-  sheet.getRange(2, 1, 1, colunas.length).setValues([colunas]);
+  // Linha 2: cabeçalhos — também texto puro
+  const cabRange = sheet.getRange(2, 1, 1, colunas.length);
+  cabRange.setNumberFormat('@');
+  cabRange.setValues([colunas]);
 
   // Linhas 3+: dados (uma linha por colaborador)
   // Todos os valores são salvos como STRING para preservar CPF, CNPJ, etc.
